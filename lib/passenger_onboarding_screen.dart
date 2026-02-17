@@ -777,7 +777,7 @@ class _PassengerOnboardingScreenState extends State<PassengerOnboardingScreen> {
     required String name, 
     required String phone, 
     String? idType, 
-    String? idNumber,
+    String? idNumber, required String paymentMethod, required String paymentStatus,
   }) {
     // Check if seat is still available
     if (!_realtimeService.isSeatAvailable(seatNumber)) {
@@ -892,203 +892,926 @@ class _PassengerOnboardingScreenState extends State<PassengerOnboardingScreen> {
     final phoneController = TextEditingController();
     final idNumberController = TextEditingController();
     String selectedIdType = 'Aadhar Card';
+    String selectedPaymentMethod = 'Cash'; // 'Cash' or 'QR'
+    bool isCashCollected = false;
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('New Passenger Onboarding', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.event_seat, color: Colors.blue[700]),
-                  const SizedBox(width: 8),
-                  Text('Seat Number: $seatNumber', 
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info, size: 16, color: Colors.green),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'New passenger - No code required',
-                      style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            
-            TextField(
-              controller: nameController, 
-              decoration: const InputDecoration(
-                labelText: 'Passenger Name *', 
-                border: OutlineInputBorder(), 
-                prefixIcon: Icon(Icons.person)
-              )
-            ),
-            const SizedBox(height: 12),
-            
-            TextField(
-              controller: phoneController, 
-              decoration: const InputDecoration(
-                labelText: 'Mobile Number *', 
-                border: OutlineInputBorder(), 
-                prefixIcon: Icon(Icons.phone)
-              ), 
-              keyboardType: TextInputType.phone
-            ),
-            
-            const SizedBox(height: 12),
-            
-            DropdownButtonFormField<String>(
-              value: selectedIdType,
-              decoration: const InputDecoration(
-                labelText: 'ID Type (Optional)', 
-                border: OutlineInputBorder(), 
-                prefixIcon: Icon(Icons.badge)
-              ),
-              items: ['Aadhar Card', 'Driving License', 'Voter ID', 'Passport', 'None'].map((type) => 
-                DropdownMenuItem(value: type, child: Text(type))
-              ).toList(),
-              onChanged: (value) { 
-                if (value != null) {
-                  setState(() {
-                    selectedIdType = value;
-                    if (value == 'None') {
-                      idNumberController.clear();
-                    }
-                  });
-                }
-              },
-            ),
-            
-            if (selectedIdType != 'None') ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: idNumberController, 
-                decoration: InputDecoration(
-                  labelText: '$selectedIdType Number', 
-                  border: const OutlineInputBorder(), 
-                  prefixIcon: const Icon(Icons.numbers),
-                  hintText: 'Optional',
+      builder: (BuildContext context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('New Passenger Onboarding', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Seat Number Container
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.event_seat, color: Colors.blue[700]),
+                    const SizedBox(width: 8),
+                    Text('Seat Number: $seatNumber', 
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+                  ],
                 ),
               ),
-            ],
-            
-            const SizedBox(height: 20),
-            
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue[200]!),
-              ),
-              child: Column(
-                children: [
-                  const Text(
-                    'PAYMENT QR CODE',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 16),
+              
+              // Info Container
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info, size: 16, color: Colors.green),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'New passenger - No code required',
+                        style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(color: Colors.grey[300]!),
-                            borderRadius: BorderRadius.circular(8),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Name Field
+              TextField(
+                controller: nameController, 
+                decoration: const InputDecoration(
+                  labelText: 'Passenger Name *', 
+                  border: OutlineInputBorder(), 
+                  prefixIcon: Icon(Icons.person)
+                )
+              ),
+              const SizedBox(height: 12),
+              
+              // Phone Field
+              TextField(
+                controller: phoneController, 
+                decoration: const InputDecoration(
+                  labelText: 'Mobile Number *', 
+                  border: OutlineInputBorder(), 
+                  prefixIcon: Icon(Icons.phone)
+                ), 
+                keyboardType: TextInputType.phone
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // ID Type Dropdown
+              DropdownButtonFormField<String>(
+                value: selectedIdType,
+                decoration: const InputDecoration(
+                  labelText: 'ID Type (Optional)', 
+                  border: OutlineInputBorder(), 
+                  prefixIcon: Icon(Icons.badge)
+                ),
+                items: ['Aadhar Card', 'Driving License', 'Voter ID', 'Passport', 'None'].map((type) => 
+                  DropdownMenuItem(value: type, child: Text(type))
+                ).toList(),
+                onChanged: (value) { 
+                  if (value != null) {
+                    setState(() {
+                      selectedIdType = value;
+                      if (value == 'None') {
+                        idNumberController.clear();
+                      }
+                    });
+                  }
+                },
+              ),
+              
+              // ID Number Field (if ID type selected)
+              if (selectedIdType != 'None') ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: idNumberController, 
+                  decoration: InputDecoration(
+                    labelText: '$selectedIdType Number', 
+                    border: const OutlineInputBorder(), 
+                    prefixIcon: const Icon(Icons.numbers),
+                    hintText: 'Optional',
+                  ),
+                ),
+              ],
+              
+              const SizedBox(height: 24),
+              
+              // Payment Options Header
+              const Text(
+                'SELECT PAYMENT OPTION',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
+              ),
+              const SizedBox(height: 16),
+              
+              // Payment Options - Cash Collection or Pay Through QR
+              Row(
+                children: [
+                  // Cash Collection Option
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedPaymentMethod = 'Cash';
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: selectedPaymentMethod == 'Cash' 
+                              ? Colors.green 
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selectedPaymentMethod == 'Cash' 
+                                ? Colors.green 
+                                : Colors.grey[300]!,
+                            width: selectedPaymentMethod == 'Cash' ? 2 : 1,
                           ),
-                          child: Center(
-                            child: Icon(
-                              Icons.qr_code_2,
-                              size: 100,
-                              color: Colors.grey[800],
+                          boxShadow: [
+                            if (selectedPaymentMethod == 'Cash')
+                              BoxShadow(
+                                color: Colors.green.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.money,
+                              size: 40,
+                              color: selectedPaymentMethod == 'Cash' 
+                                  ? Colors.white 
+                                  : Colors.green[700],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'CASH COLLECTION',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: selectedPaymentMethod == 'Cash' 
+                                    ? Colors.white 
+                                    : Colors.green[700],
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Collect cash manually',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: selectedPaymentMethod == 'Cash' 
+                                    ? Colors.white.withOpacity(0.9)
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                            if (selectedPaymentMethod == 'Cash') ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'SELECTED',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(width: 12),
+                  
+                  // Pay Through QR Option
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedPaymentMethod = 'QR';
+                          isCashCollected = false; // Reset cash status when switching
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: selectedPaymentMethod == 'QR' 
+                              ? Colors.blue 
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selectedPaymentMethod == 'QR' 
+                                ? Colors.blue 
+                                : Colors.grey[300]!,
+                            width: selectedPaymentMethod == 'QR' ? 2 : 1,
+                          ),
+                          boxShadow: [
+                            if (selectedPaymentMethod == 'QR')
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.qr_code_scanner,
+                              size: 40,
+                              color: selectedPaymentMethod == 'QR' 
+                                  ? Colors.white 
+                                  : Colors.blue[700],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'PAY THROUGH QR',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: selectedPaymentMethod == 'QR' 
+                                    ? Colors.white 
+                                    : Colors.blue[700],
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Scan QR code to pay',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: selectedPaymentMethod == 'QR' 
+                                    ? Colors.white.withOpacity(0.9)
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                            if (selectedPaymentMethod == 'QR') ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'SELECTED',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue[700],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Dynamic Content Based on Selected Payment Option
+              if (selectedPaymentMethod == 'Cash') ...[
+                // Cash Collection Section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green[200]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'CASH COLLECTION DETAILS',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Amount Display
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.money,
+                              color: Colors.green[700],
+                              size: 32,
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Total Fare Amount',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                Text(
+                                  '₹1,500.00',
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green[700],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Cash Collection Button
+                      if (!isCashCollected) ...[
+                        Container(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                isCashCollected = true;
+                              });
+                              _showSnackBar(
+                                '✅ Cash collected successfully! Amount: ₹1,500',
+                                Colors.green,
+                              );
+                            },
+                            icon: const Icon(Icons.payments, color: Colors.white, size: 24),
+                            label: const Text(
+                              'COLLECT CASH PAYMENT',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 4,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Scan to pay ₹1,500.00',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green[700],
+                      ],
+                      
+                      // Cash Collected Success Message
+                      if (isCashCollected) ...[
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.green.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Cash Collected!',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Amount: ₹1,500',
+                                      style: TextStyle(
+                                        color: Colors.white.withOpacity(0.9),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const Text(
-                          'UPI ID: busonboard@paytm',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        
+                        const SizedBox(height: 12),
+                        
+                        // Receipt Note
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.receipt, color: Colors.blue[700], size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Remember to provide receipt to passenger',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue[800],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                    ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Warning Message (if cash not collected)
+                      if (!isCashCollected) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.amber[50],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.amber[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning, color: Colors.amber[800], size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Please collect cash from passenger before confirming seat',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.amber[800],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
+              ] else ...[
+                // Pay Through QR Section
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'SCAN QR CODE TO PAY',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Company Header
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.business, color: Colors.blue[700], size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'CITY TRAVELS',
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // QR Code Display
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 180,
+                              height: 180,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(color: Colors.blue[100]!),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.qr_code_2,
+                                      size: 160,
+                                      color: Colors.blue[900],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Icon(
+                                        Icons.payment,
+                                        size: 30,
+                                        color: Colors.blue[700],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Pay ₹1,500.00',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Scan Instructions
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info, color: Colors.green[700], size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Payment Instructions:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green[700],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Ask passenger to scan this QR code using any UPI app. Payment will be automatically verified.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.green[700],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              
+              const SizedBox(height: 16),
+              
+              // Status Message
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: selectedPaymentMethod == 'Cash' 
+                      ? (isCashCollected ? Colors.green[50] : Colors.orange[50])
+                      : Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      selectedPaymentMethod == 'Cash' 
+                          ? (isCashCollected ? Icons.check_circle : Icons.payment)
+                          : Icons.qr_code_scanner,
+                      size: 20,
+                      color: selectedPaymentMethod == 'Cash' 
+                          ? (isCashCollected ? Colors.green : Colors.orange[700])
+                          : Colors.blue[700],
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _getStatusMessage(selectedPaymentMethod, isCashCollected),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: selectedPaymentMethod == 'Cash' 
+                              ? (isCashCollected ? Colors.green[700] : Colors.orange[700])
+                              : Colors.blue[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ]),
+          ),
+          actions: [
+            // Cancel Button
+            TextButton(
+              onPressed: () => Navigator.pop(context), 
+              child: const Text('CANCEL', style: TextStyle(color: Colors.grey))
+            ),
+            
+            // Confirm Button
+            ElevatedButton(
+              onPressed: () {
+                // Validate required fields
+                if (nameController.text.isNotEmpty && 
+                    phoneController.text.isNotEmpty) {
+                  
+                  // Validate cash collection for Cash method
+                  if (selectedPaymentMethod == 'Cash' && !isCashCollected) {
+                    _showSnackBar(
+                      '⚠️ Please collect cash payment first', 
+                      Colors.orange
+                    );
+                    return;
+                  }
+                  
+                  // Close dialog
+                  Navigator.pop(context);
+                  
+                  // Show success message based on payment method
+                  String successMessage = selectedPaymentMethod == 'Cash'
+                      ? 'Cash collected: ₹1,500'
+                      : 'QR code payment initiated';
+                  
+                  Color messageColor = selectedPaymentMethod == 'Cash' 
+                      ? Colors.green 
+                      : Colors.blue;
+                  
+                  _showSnackBar(
+                    '✅ Seat $seatNumber: ${nameController.text} onboarded. $successMessage', 
+                    messageColor
+                  );
+                  
+                  // Call onboard function
+                  _onboardNewPassenger(
+                    seatNumber: seatNumber,
+                    name: nameController.text, 
+                    phone: phoneController.text, 
+                    idType: selectedIdType == 'None' ? null : selectedIdType, 
+                    idNumber: selectedIdType == 'None' ? null : idNumberController.text,
+                    paymentMethod: selectedPaymentMethod == 'Cash' ? 'Cash' : 'QR Code',
+                    paymentStatus: selectedPaymentMethod == 'Cash' 
+                        ? (isCashCollected ? 'cash_collected' : 'cash_pending')
+                        : 'qr_pending',
+                  );
+                } else {
+                  _showSnackBar('Please fill all required fields', Colors.red);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: selectedPaymentMethod == 'Cash' 
+                    ? (isCashCollected ? Colors.green : Colors.grey)
+                    : Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                _getConfirmButtonText(selectedPaymentMethod, isCashCollected),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
-          ]),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context), 
-            child: const Text('CANCEL', style: TextStyle(color: Colors.grey))
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameController.text.isNotEmpty && 
-                  phoneController.text.isNotEmpty) {
-                
-                Navigator.pop(context);
-                _onboardNewPassenger(
-                  seatNumber: seatNumber,
-                  name: nameController.text, 
-                  phone: phoneController.text, 
-                  idType: selectedIdType == 'None' ? null : selectedIdType, 
-                  idNumber: selectedIdType == 'None' ? null : idNumberController.text,
-                );
-              } else {
-                _showSnackBar('Please fill all required fields', Colors.red);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green, 
-              foregroundColor: Colors.white
-            ),
-            child: const Text('CONFIRM SEAT & ONBOARD'),
-          ),
-        ],
       ),
     );
   }
+
+// Helper function to get status message
+String _getStatusMessage(String method, bool isCashCollected) {
+  if (method == 'Cash') {
+    return isCashCollected 
+        ? '✓ Cash collected successfully! You can now confirm the seat.'
+        : '⚠️ Click "COLLECT CASH PAYMENT" button after receiving cash';
+  } else {
+    return '📱 Show QR code to passenger for payment scan';
+  }
+}
+
+// Helper function to get confirm button text
+String _getConfirmButtonText(String method, bool isCashCollected) {
+  if (method == 'Cash') {
+    return isCashCollected ? 'CONFIRM SEAT & ONBOARD' : 'COLLECT CASH FIRST';
+  } else {
+    return 'CONFIRM SEAT & ONBOARD';
+  }
+}
+
+// Helper widget for step indicator
+Widget _buildStepIndicator({
+  required int step,
+  required String label,
+  required bool isCompleted,
+  required IconData icon,
+}) {
+  Color getColor() {
+    if (isCompleted) {
+      return step == 1 ? Colors.green : Colors.green;
+    }
+    return step == 1 ? Colors.orange : Colors.grey;
+  }
+
+  return Column(
+    children: [
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: getColor().withOpacity(0.1),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          color: getColor(),
+          size: 20,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          color: getColor(),
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    ],
+  );
+}
+
+// Helper widget for step connector
+Widget _buildStepConnector({required bool isCompleted}) {
+  return Container(
+    width: 30,
+    height: 2,
+    decoration: BoxDecoration(
+      color: isCompleted ? Colors.green : Colors.grey[300],
+      borderRadius: BorderRadius.circular(2),
+    ),
+  );
+}
+
+// Helper method for payment option buttons
+Widget _buildPaymentOption({
+  required String title,
+  required IconData icon,
+  required Color color,
+  required bool isSelected,
+  required VoidCallback onTap,
+}) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: isSelected ? color.withOpacity(0.1) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isSelected ? color : Colors.grey[300]!,
+          width: isSelected ? 2 : 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: isSelected ? color : Colors.grey[600],
+            size: 28,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              color: isSelected ? color : Colors.grey[600],
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12,
+            ),
+          ),
+          if (isSelected)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Icon(
+                Icons.check_circle,
+                color: color,
+                size: 16,
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
 
   void _showSeatConfirmedDialog(OnboardedPassenger passenger, {required bool isPrefilled}) {
     showDialog(
